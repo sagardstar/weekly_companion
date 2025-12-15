@@ -18,7 +18,7 @@ export function Login() {
       provider: "google",
       options: {
         // Redirect back to your local app after Google approves
-        redirectTo: "http://localhost:5173",
+        redirectTo: window.location.origin,
       },
     });
     if (error) {
@@ -40,7 +40,7 @@ export function Login() {
       email,
       options: {
         // Redirect back to your local app when they click the email link
-        emailRedirectTo: "http://localhost:5173",
+        emailRedirectTo: window.location.origin,
       },
     });
 
@@ -79,8 +79,8 @@ export function Login() {
   if (!supabase || !SUPABASE_CONFIG_OK) {
     return (
       <div className="p-4 rounded-lg bg-white border border-sand-100 text-sm text-red-700">
-        Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY and
-        restart the dev server.
+        Supabase is not configured. Please set VITE_SUPABASE_URL and
+        VITE_SUPABASE_ANON_KEY and restart the dev server.
       </div>
     );
   }
