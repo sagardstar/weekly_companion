@@ -31,6 +31,9 @@ function App() {
   const settings = useAppStore((s) => s.settings);
   const lastUserIdRef = useRef<string | null>(null);
   const ensuredProfileRef = useRef<string | null>(null);
+  const seededRef = useRef(false);
+  const [authReady, setAuthReady] = useState(!supabase);
+  const user = useAppStore((s) => s.user);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   const ensureProfile = (userId: string, email?: string) => {
     if (!supabase || ensuredProfileRef.current === userId) return;
@@ -45,6 +48,7 @@ function App() {
 
   useEffect(() => {
     ensureSettings(DEMO_USER);
+    if (!authReady || seededRef.current || user) return;
     if (habits.length === 0) {
       addHabit({
         user_id: DEMO_USER,
@@ -69,11 +73,24 @@ function App() {
       });
       setHabitStatus(strength.id, "paused");
     }
-  }, [addHabit, ensureSettings, habits.length, setHabitStatus]);
+    seededRef.current = true;
+  }, [addHabit, ensureSettings, habits.length, setHabitStatus, authReady, user]);
+
+  useEffect(() => {
+    if (selectedHabitId || habits.length === 0) return;
+    const first =
+      habits.find((h) => h.status === "active") ??
+      habits.find((h) => h.status !== "archived") ??
+      habits[0];
+    if (first) {
+      Promise.resolve().then(() => setSelectedHabitId(first.id));
+    }
+  }, [habits, selectedHabitId]);
 
   useEffect(() => {
     if (!supabase) {
       console.error("Supabase client not configured; skipping auth listener.");
+      Promise.resolve().then(() => setAuthReady(true));
       return;
     }
 
@@ -93,7 +110,8 @@ function App() {
           void syncFromCloud();
         }
       })
-      .catch((err) => console.error("getSession error", err));
+      .catch((err) => console.error("getSession error", err))
+      .finally(() => setAuthReady(true));
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth Change:", event);
@@ -114,6 +132,7 @@ function App() {
 
     return () => {
       data?.subscription.unsubscribe();
+      setAuthReady(true);
     };
   }, [migrateGuestData, setUser, syncFromCloud]);
 
@@ -129,10 +148,10 @@ function App() {
     () => getWeekRange(new Date(selectedDate)),
     [getWeekRange, selectedDate],
   );
-  const selectedHabit =
-    habits.find((h) => h.id === selectedHabitId) ??
-    habits.find((h) => h.status !== "archived") ??
-    null;
+  const fallbackHabitId =
+    habits.find((h) => h.status !== "archived")?.id ?? habits[0]?.id ?? null;
+  const resolvedHabitId = selectedHabitId ?? fallbackHabitId;
+  const selectedHabit = habits.find((h) => h.id === resolvedHabitId) ?? null;
   const selectedWeeklyLogs = useMemo(() => {
     if (!selectedHabit) return [];
     return logs.filter(
