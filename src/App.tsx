@@ -32,6 +32,8 @@ function App() {
   const lastUserIdRef = useRef<string | null>(null);
   const ensuredProfileRef = useRef<string | null>(null);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+  const habitDetailRef = useRef<HTMLElement | null>(null);
+  const shouldScrollToDetailRef = useRef(false);
   const ensureProfile = (userId: string, email?: string) => {
     if (!supabase || ensuredProfileRef.current === userId) return;
     ensuredProfileRef.current = userId;
@@ -135,6 +137,16 @@ function App() {
     ? getWeeklyProgress(selectedHabit.id, new Date(selectedDate))
     : 0;
 
+  useEffect(() => {
+    if (!selectedHabit || !shouldScrollToDetailRef.current) return;
+    shouldScrollToDetailRef.current = false;
+    // Wait a tick so layout is committed before scrolling/focusing.
+    requestAnimationFrame(() => {
+      habitDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      habitDetailRef.current?.focus?.();
+    });
+  }, [selectedHabit]);
+
   return (
     <main className="bg-sand-50 text-slate-900 min-h-screen p-4 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-4">
@@ -166,11 +178,15 @@ function App() {
             <div className="space-y-4">
               <Dashboard
                 selectedHabitId={selectedHabitId}
-                onSelectHabit={(id) => setSelectedHabitId(id)}
+                onSelectHabit={(id) => {
+                  shouldScrollToDetailRef.current = true;
+                  setSelectedHabitId(id);
+                }}
               />
               {selectedHabit && (
                 <HabitDetail
                   key={selectedHabit.id}
+                  sectionRef={habitDetailRef}
                   habit={selectedHabit}
                   progress={selectedProgress}
                   weekRange={weekRange}
@@ -520,6 +536,7 @@ function HabitDetail({
   progress,
   weekRange,
   weeklyLogs,
+  sectionRef,
   onAdd,
   onAddCustom,
   onDeleteLog,
@@ -529,6 +546,7 @@ function HabitDetail({
   progress: number;
   weekRange: { start: string; end: string };
   weeklyLogs: LogEntry[];
+  sectionRef?: React.RefObject<HTMLElement | null>;
   onAdd: (note: string | undefined, targetDate: string) => void;
   onAddCustom: (amount: number, note: string | undefined, targetDate: string) => void;
   onDeleteLog: (id: string) => void;
@@ -595,7 +613,12 @@ function HabitDetail({
     .sort((a, b) => (a.timestamp > b.timestamp ? -1 : 1));
 
   return (
-    <section className="mt-2 rounded-2xl border border-sand-100 bg-white p-4 sm:p-6 shadow-soft space-y-4">
+    <section
+      ref={sectionRef}
+      tabIndex={-1}
+      id="habit-detail"
+      className="mt-2 rounded-2xl border border-sand-100 bg-white p-4 sm:p-6 shadow-soft space-y-4 focus:outline-none focus:ring-2 focus:ring-sage-300"
+    >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <p className="text-sm uppercase tracking-wide text-sage-500">Habit detail</p>
