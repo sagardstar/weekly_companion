@@ -8,7 +8,6 @@ import { Habit, LogEntry, WeekStart } from "./types/schema";
 import { Login } from "./components/auth/Login";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { useToast } from "./components/ToastProvider";
-import { addDays } from "date-fns";
 
 type TabKey = "dashboard" | "reflections" | "monthly" | "settings" | "account";
 
@@ -535,6 +534,44 @@ function HabitDetail({
   onDeleteLog: (id: string) => void;
   onStatusChange: (status: Habit["status"]) => void;
 }) {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ] as const;
+
+  const addDaysISO = (dateStr: string, days: number) => {
+    const year = Number(dateStr.slice(0, 4));
+    const month = Number(dateStr.slice(5, 7));
+    const day = Number(dateStr.slice(8, 10));
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+    return date.toISOString().slice(0, 10);
+  };
+
+  const weekdayShort = (dateStr: string) => {
+    const year = Number(dateStr.slice(0, 4));
+    const month = Number(dateStr.slice(5, 7));
+    const day = Number(dateStr.slice(8, 10));
+    const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    return dayNames[dow] ?? "";
+  };
+
+  const formatMonthDay = (dateStr: string) => {
+    const month = Number(dateStr.slice(5, 7));
+    const day = Number(dateStr.slice(8, 10));
+    return `${monthNames[month - 1] ?? ""} ${day}`;
+  };
+
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState(habit.default_increment);
   const disabled = habit.status !== "active";
@@ -546,17 +583,12 @@ function HabitDetail({
     return weekRange.start;
   })();
   const [targetDate, setTargetDate] = useState<string>(defaultTargetDate);
-  const weekDates = useMemo(() => {
-    const start = new Date(`${weekRange.start}T00:00:00Z`);
-    return Array.from({ length: 7 }, (_, idx) => {
-      const dateStr = addDays(start, idx).toISOString().slice(0, 10);
-      const dayLabel = addDays(start, idx).toLocaleDateString(undefined, {
-        weekday: "short",
-      });
-      const dayNum = dateStr.slice(8, 10);
-      return { date: dateStr, label: `${dayLabel} ${dayNum}` };
-    });
-  }, [weekRange.start]);
+  const weekDates = Array.from({ length: 7 }, (_, idx) => {
+    const dateStr = addDaysISO(weekRange.start, idx);
+    const dayLabel = weekdayShort(dateStr);
+    const dayNum = dateStr.slice(8, 10);
+    return { date: dateStr, label: `${dayLabel} ${dayNum}` };
+  });
 
   const sortedLogs = weeklyLogs
     .slice()
@@ -574,7 +606,7 @@ function HabitDetail({
               : `${weeklyLogs.length} entries this week`}
           </p>
           <p className="text-sm text-slate-500">
-            Week of {weekRange.start} — {weekRange.end}
+            Week of {formatMonthDay(weekRange.start)} — {formatMonthDay(weekRange.end)}
           </p>
         </div>
         <label className="text-sm text-slate-700 flex items-center gap-2">

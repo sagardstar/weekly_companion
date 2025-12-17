@@ -1,6 +1,29 @@
-import { addDays, format } from "date-fns";
+import { addDays } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppStore } from "../../store";
+
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function formatMonthDay(dateStr: string) {
+  // dateStr is YYYY-MM-DD; treat as a pure calendar date to avoid timezone shifts.
+  const month = Number(dateStr.slice(5, 7));
+  const day = Number(dateStr.slice(8, 10));
+  const monthLabel = MONTHS_SHORT[month - 1] ?? "";
+  return `${monthLabel} ${day}`;
+}
 
 export function WeekHeader() {
   const selectedDate = useAppStore((s) => s.selectedDate);
@@ -10,10 +33,7 @@ export function WeekHeader() {
   const currentDate = new Date(selectedDate);
   const range = getWeekRange(currentDate);
 
-  const weekLabel = `${format(new Date(range.start), "MMM d")} - ${format(
-    new Date(range.end),
-    "MMM d",
-  )}`;
+  const weekLabel = `${formatMonthDay(range.start)} - ${formatMonthDay(range.end)}`;
 
   const shiftWeek = (days: number) => {
     const next = addDays(currentDate, days);

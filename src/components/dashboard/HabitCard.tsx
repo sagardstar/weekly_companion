@@ -3,7 +3,13 @@ import { CheckCircle2, Pencil } from "lucide-react";
 import { Habit, LogEntry } from "../../types/schema";
 import { useAppStore } from "../../store";
 import { useToast } from "../ToastProvider";
-import { addDays } from "date-fns";
+function addDaysISO(dateStr: string, days: number) {
+  const year = Number(dateStr.slice(0, 4));
+  const month = Number(dateStr.slice(5, 7));
+  const day = Number(dateStr.slice(8, 10));
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
 
 type HabitCardProps = {
   habit: Habit;
@@ -58,9 +64,8 @@ export function HabitCard({
   const statusLabel = habit.status === "active" ? "Active" : habit.status;
 
   const weeklyDots = useMemo(() => {
-    const start = new Date(`${weekStartDate}T00:00:00Z`);
     return Array.from({ length: 7 }).map((_, idx) => {
-      const dateStr = addDays(start, idx).toISOString().slice(0, 10);
+      const dateStr = addDaysISO(weekStartDate, idx);
       return weeklyLogs.some((l) => l.target_date === dateStr);
     });
   }, [weekStartDate, weeklyLogs]);
