@@ -32,6 +32,7 @@ export interface AddLogInput {
   amount: number;
   note?: string | null;
   timestamp?: Date;
+  target_date?: string; // YYYY-MM-DD (optional override for backdated logging)
 }
 
 export interface AddReflectionInput {

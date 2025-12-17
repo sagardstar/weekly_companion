@@ -129,7 +129,7 @@ export function createAppStore(initial?: Partial<PersistedState>) {
       const user_id = currentUser?.id ?? input.user_id;
       const now = input.timestamp ?? new Date();
       const timezone = settings?.timezone ?? DEFAULT_TIMEZONE;
-      const target_date = formatTargetDate(now, timezone);
+      const target_date = input.target_date ?? formatTargetDate(now, timezone);
       const log = {
         id: generateUUID(),
         habit_id: input.habit_id,

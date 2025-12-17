@@ -20,6 +20,15 @@ function seedHabits() {
   const now = new Date().toISOString();
   appStore.setState(
     {
+      settings: {
+        user_id: "demo-user",
+        week_start_day: "sunday",
+        timezone: "UTC",
+        reflection_enabled: false,
+        reflection_prompts: [],
+        created_at: now,
+        updated_at: now,
+      },
       habits: [
         {
           id: "habit-music",
@@ -124,6 +133,8 @@ describe("App layout and navigation", () => {
   it("shows habit detail logs and supports deletion", async () => {
     seedHabits();
     render(<AppWithProviders />);
+    const dateButtons = await screen.findAllByRole("button", { name: /Select log date/i });
+    expect(dateButtons.length).toBeGreaterThan(0);
     const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
     fireEvent.click(detailAdd);
 
@@ -144,6 +155,25 @@ describe("App layout and navigation", () => {
     fireEvent.change(statusSelect, { target: { value: "paused" } });
     const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
     expect(detailAdd).toBeDisabled();
+  });
+
+  it("allows logging a session for a specific day in the current week", async () => {
+    seedHabits();
+    appStore.setState(
+      { selectedDate: new Date("2025-12-17T12:00:00.000Z").toISOString() },
+      false,
+    );
+    render(<AppWithProviders />);
+
+    const backdate = await screen.findByRole("button", {
+      name: /Select log date 2025-12-14/i,
+    });
+    fireEvent.click(backdate);
+
+    const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
+    fireEvent.click(detailAdd);
+
+    expect(await screen.findByText(/1 sessions on 2025-12-14/i)).toBeInTheDocument();
   });
 
   it("saves weekly reflection entries", async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ToastProvider } from "./components/ToastProvider";
-import { detectInitialTimezone } from "./lib/time";
+import { detectInitialTimezone, formatTargetDate } from "./lib/time";
 import { supabase } from "./lib/supabase";
 import { parseImportedState, serializeState } from "./persistence/export";
 import { useAppStore } from "./store";
@@ -8,6 +8,7 @@ import { Habit, LogEntry, WeekStart } from "./types/schema";
 import { Login } from "./components/auth/Login";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { useToast } from "./components/ToastProvider";
+import { addDays } from "date-fns";
 
 type TabKey = "dashboard" | "reflections" | "monthly" | "settings" | "account";
 
@@ -175,20 +176,22 @@ function App() {
                   progress={selectedProgress}
                   weekRange={weekRange}
                   weeklyLogs={selectedWeeklyLogs}
-                  onAdd={(note) =>
+                  onAdd={(note, targetDate) =>
                     addLog({
                       habit_id: selectedHabit.id,
                       user_id: settings?.user_id ?? selectedHabit.user_id ?? DEMO_USER,
                       amount: selectedHabit.default_increment,
                       note,
+                      target_date: targetDate,
                     })
                   }
-                  onAddCustom={(amount, note) =>
+                  onAddCustom={(amount, note, targetDate) =>
                     addLog({
                       habit_id: selectedHabit.id,
                       user_id: settings?.user_id ?? selectedHabit.user_id ?? DEMO_USER,
                       amount,
                       note,
+                      target_date: targetDate,
                     })
                   }
                   onDeleteLog={deleteLog}
@@ -527,14 +530,33 @@ function HabitDetail({
   progress: number;
   weekRange: { start: string; end: string };
   weeklyLogs: LogEntry[];
-  onAdd: (note?: string) => void;
-  onAddCustom: (amount: number, note?: string) => void;
+  onAdd: (note: string | undefined, targetDate: string) => void;
+  onAddCustom: (amount: number, note: string | undefined, targetDate: string) => void;
   onDeleteLog: (id: string) => void;
   onStatusChange: (status: Habit["status"]) => void;
 }) {
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState(habit.default_increment);
   const disabled = habit.status !== "active";
+  const timezone = useAppStore((s) => s.settings?.timezone) ?? detectInitialTimezone() ?? "UTC";
+
+  const defaultTargetDate = (() => {
+    const today = formatTargetDate(new Date(), timezone);
+    if (today >= weekRange.start && today <= weekRange.end) return today;
+    return weekRange.start;
+  })();
+  const [targetDate, setTargetDate] = useState<string>(defaultTargetDate);
+  const weekDates = useMemo(() => {
+    const start = new Date(`${weekRange.start}T00:00:00Z`);
+    return Array.from({ length: 7 }, (_, idx) => {
+      const dateStr = addDays(start, idx).toISOString().slice(0, 10);
+      const dayLabel = addDays(start, idx).toLocaleDateString(undefined, {
+        weekday: "short",
+      });
+      const dayNum = dateStr.slice(8, 10);
+      return { date: dateStr, label: `${dayLabel} ${dayNum}` };
+    });
+  }, [weekRange.start]);
 
   const sortedLogs = weeklyLogs
     .slice()
@@ -571,7 +593,7 @@ function HabitDetail({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
-          onClick={() => onAdd(note.trim() ? note.trim() : undefined)}
+          onClick={() => onAdd(note.trim() ? note.trim() : undefined, targetDate)}
           disabled={disabled}
           className={`w-full font-medium py-2 rounded-xl transition ${
             disabled
@@ -595,7 +617,7 @@ function HabitDetail({
             onClick={() => {
               const amt = Number(amount) || 0;
               if (amt <= 0) return;
-              onAddCustom(amt, note.trim() ? note.trim() : undefined);
+              onAddCustom(amt, note.trim() ? note.trim() : undefined, targetDate);
               setAmount(habit.default_increment);
             }}
             disabled={disabled}
@@ -611,6 +633,29 @@ function HabitDetail({
       </div>
 
       <div className="space-y-2">
+        <div className="rounded-xl border border-sand-100 bg-white p-3">
+          <p className="text-sm font-semibold text-slate-800">Log for</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {weekDates.map((d) => {
+              const selected = d.date === targetDate;
+              return (
+                <button
+                  key={d.date}
+                  type="button"
+                  aria-label={`Select log date ${d.date}`}
+                  onClick={() => setTargetDate(d.date)}
+                  className={`rounded-xl px-3 py-2 text-sm transition border ${
+                    selected
+                      ? "bg-sage-100 border-sage-300 text-sage-800"
+                      : "bg-white border-sand-100 text-slate-700 hover:bg-sand-50"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <label className="text-sm text-slate-700 flex flex-col gap-1">
           Note (optional)
           <textarea
