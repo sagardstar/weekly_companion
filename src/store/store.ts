@@ -45,7 +45,15 @@ export function createAppStore(initial?: Partial<PersistedState>) {
     },
     ensureSettings(user_id: string) {
       const current = get().settings;
-      if (current) return current;
+      if (current) {
+        if (current.user_id === user_id) return current;
+        // If the active user changed (guest -> signed-in), carry over preferences
+        // but bind settings to the new user_id.
+        return get().setSettings({
+          ...current,
+          user_id,
+        });
+      }
       return get().setSettings({
         user_id,
         timezone: detectInitialTimezone(),
@@ -66,9 +74,11 @@ export function createAppStore(initial?: Partial<PersistedState>) {
     },
     addHabit(input) {
       const now = new Date().toISOString();
+      const currentUser = get().user;
+      const user_id = currentUser?.id ?? input.user_id;
       const habit = {
         id: generateUUID(),
-        user_id: input.user_id,
+        user_id,
         name: input.name,
         icon: input.icon ?? null,
         weekly_goal: input.weekly_goal ?? null,
@@ -79,8 +89,7 @@ export function createAppStore(initial?: Partial<PersistedState>) {
         updated_at: now,
       };
       set((state) => ({ habits: [...state.habits, habit] }));
-      const currentUser = get().user;
-      if (currentUser && supabase && habit.user_id === currentUser.id) {
+      if (currentUser && supabase) {
         void (async () => {
           const { error } = await supabase
             .from("habits")
@@ -92,12 +101,13 @@ export function createAppStore(initial?: Partial<PersistedState>) {
     },
     updateHabit(habit) {
       const now = new Date().toISOString();
-      const merged: Habit = { ...habit, updated_at: now };
+      const currentUser = get().user;
+      const user_id = currentUser?.id ?? habit.user_id;
+      const merged: Habit = { ...habit, user_id, updated_at: now };
       set((state) => ({
         habits: state.habits.map((h) => (h.id === habit.id ? merged : h)),
       }));
-      const currentUser = get().user;
-      if (currentUser && supabase && merged.user_id === currentUser.id) {
+      if (currentUser && supabase) {
         void (async () => {
           const { error } = await supabase
             .from("habits")
@@ -115,13 +125,15 @@ export function createAppStore(initial?: Partial<PersistedState>) {
     },
     addLog(input) {
       const settings = get().settings;
+      const currentUser = get().user;
+      const user_id = currentUser?.id ?? input.user_id;
       const now = input.timestamp ?? new Date();
       const timezone = settings?.timezone ?? DEFAULT_TIMEZONE;
       const target_date = formatTargetDate(now, timezone);
       const log = {
         id: generateUUID(),
         habit_id: input.habit_id,
-        user_id: input.user_id,
+        user_id,
         timestamp: now.toISOString(),
         target_date,
         amount: input.amount,
@@ -129,8 +141,7 @@ export function createAppStore(initial?: Partial<PersistedState>) {
         created_at: now.toISOString(),
       };
       set((state) => ({ logs: [...state.logs, log] }));
-      const currentUser = get().user;
-      if (currentUser && supabase && log.user_id === currentUser.id) {
+      if (currentUser && supabase) {
         void (async () => {
           const { error } = await supabase
             .from("logs")
