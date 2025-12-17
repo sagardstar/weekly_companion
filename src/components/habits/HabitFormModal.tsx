@@ -10,6 +10,33 @@ type HabitFormModalProps = {
 };
 
 const defaultUnit = "sessions";
+const ICON_CHOICES = [
+  "🌱",
+  "☀️",
+  "🏃",
+  "🏋️",
+  "🧘",
+  "📚",
+  "✍️",
+  "🎸",
+  "🎹",
+  "🎨",
+  "🧠",
+  "💧",
+  "🥗",
+  "🛌",
+  "🧹",
+  "🧘‍♂️",
+  "🧘‍♀️",
+  "🚶",
+  "🧗",
+  "🚴",
+  "🧑‍💻",
+  "🗓️",
+  "📈",
+  "🧊",
+  "🍎",
+] as const;
 
 export function HabitFormModal({ isOpen, onClose, initialData }: HabitFormModalProps) {
   const addHabit = useAppStore((s) => s.addHabit);
@@ -30,6 +57,7 @@ export function HabitFormModal({ isOpen, onClose, initialData }: HabitFormModalP
 
   const isEdit = Boolean(initialData);
   const weeklyGoal = goal === "" ? null : Number(goal);
+  const selectedIcon = (icon && icon.trim().length > 0 ? icon : "🧭").trim();
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -37,7 +65,7 @@ export function HabitFormModal({ isOpen, onClose, initialData }: HabitFormModalP
       updateHabit({
         ...initialData,
         name: name.trim(),
-        icon: icon || null,
+        icon: selectedIcon || null,
         weekly_goal: weeklyGoal,
         unit: unit.trim() || defaultUnit,
       });
@@ -45,7 +73,7 @@ export function HabitFormModal({ isOpen, onClose, initialData }: HabitFormModalP
       addHabit({
         user_id: settings?.user_id ?? "demo-user",
         name: name.trim(),
-        icon: icon || null,
+        icon: selectedIcon || null,
         weekly_goal: weeklyGoal,
         unit: unit.trim() || defaultUnit,
         default_increment: 1,
@@ -100,12 +128,40 @@ export function HabitFormModal({ isOpen, onClose, initialData }: HabitFormModalP
 
           <label className="text-sm text-stone-700 flex flex-col gap-1">
             Icon (emoji)
-            <input
-              value={icon ?? ""}
-              onChange={(e) => setIcon(e.target.value)}
-              className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
-              placeholder="😀"
-            />
+            <div className="flex items-center gap-3">
+              <div
+                className="h-10 w-10 rounded-full bg-stone-100 flex items-center justify-center text-lg text-stone-700"
+                aria-label={`Selected icon ${selectedIcon}`}
+              >
+                {selectedIcon}
+              </div>
+              <input
+                value={icon ?? ""}
+                onChange={(e) => setIcon(e.target.value)}
+                className="flex-1 rounded-lg border border-stone-200 px-3 py-2 text-sm"
+                placeholder="Type an emoji (optional)"
+              />
+            </div>
+            <div className="mt-2 grid grid-cols-8 gap-2">
+              {ICON_CHOICES.map((choice) => {
+                const isSelected = choice === selectedIcon;
+                return (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => setIcon(choice)}
+                    aria-label={`Select icon ${choice}`}
+                    className={`h-9 w-9 rounded-xl border text-lg flex items-center justify-center transition ${
+                      isSelected
+                        ? "bg-emerald-50 border-emerald-200"
+                        : "bg-white border-stone-200 hover:bg-stone-50"
+                    }`}
+                  >
+                    {choice}
+                  </button>
+                );
+              })}
+            </div>
           </label>
 
           <label className="text-sm text-stone-700 flex flex-col gap-1">

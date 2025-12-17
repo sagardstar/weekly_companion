@@ -82,6 +82,24 @@ describe("App layout and navigation", () => {
     expect(screen.getByRole("button", { name: /\+ create first habit/i })).toBeInTheDocument();
   });
 
+  it("lets users create a habit with a chosen icon", async () => {
+    render(<AppWithProviders />);
+    const create = await screen.findByRole("button", { name: /\+ create first habit/i });
+    fireEvent.click(create);
+
+    const nameInput = await screen.findByLabelText(/Name/i);
+    fireEvent.change(nameInput, { target: { value: "Meditation" } });
+
+    const iconButton = screen.getByRole("button", { name: "Select icon 🧘" });
+    fireEvent.click(iconButton);
+
+    const save = screen.getByRole("button", { name: /save/i });
+    fireEvent.click(save);
+
+    expect(await screen.findByLabelText(/Meditation card/i)).toBeInTheDocument();
+    expect(screen.getByText("🧘")).toBeInTheDocument();
+  });
+
   it("switches tabs when navigation buttons are clicked", () => {
     render(<AppWithProviders />);
     const reflectionsTab = screen.getByRole("button", { name: /reflections/i });
