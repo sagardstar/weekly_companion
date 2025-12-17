@@ -89,17 +89,34 @@ export function Dashboard({ onSelectHabit, selectedHabitId }: DashboardProps) {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="rounded-2xl bg-white/90 p-6 shadow-soft flex flex-col items-start gap-3">
-      <h3 className="text-xl font-semibold text-stone-900">Create your first habit</h3>
-      <p className="text-stone-600 text-sm">
-        Start with one small habit and build consistency each week.
-      </p>
-      <button
-        onClick={onAdd}
-        className="rounded-2xl bg-emerald-400 px-4 py-2 font-semibold text-stone-900 hover:bg-emerald-300 transition"
-      >
-        Add Habit
-      </button>
+    <div className="rounded-2xl bg-white/90 p-8 shadow-soft border border-stone-200 overflow-hidden relative">
+      <div
+        className="absolute inset-0 opacity-50 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, rgba(231,229,228,0.35) 1px, transparent 1px)",
+          backgroundSize: "100% 28px",
+        }}
+      />
+      <div className="relative flex flex-col items-center text-center gap-3">
+        <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center shadow-soft">
+          <span className="text-3xl" aria-hidden="true">
+            🌱
+          </span>
+        </div>
+        <h3 className="text-2xl font-semibold text-stone-900">
+          What would you like to focus on this week?
+        </h3>
+        <p className="text-stone-600 text-sm max-w-sm">
+          Start small. You can always add more later.
+        </p>
+        <button
+          onClick={onAdd}
+          className="mt-2 rounded-2xl bg-emerald-400 px-5 py-2.5 font-semibold text-stone-900 hover:bg-emerald-300 transition shadow-soft"
+        >
+          + Create First Habit
+        </button>
+      </div>
     </div>
   );
 }

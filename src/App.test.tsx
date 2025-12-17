@@ -3,15 +3,74 @@ import { appStore } from "./store";
 import { AppWithProviders } from "./App";
 
 beforeEach(() => {
-  appStore.setState({ settings: null, habits: [], logs: [], reflections: [] }, false);
+  appStore.setState(
+    {
+      user: null,
+      selectedDate: new Date().toISOString(),
+      settings: null,
+      habits: [],
+      logs: [],
+      reflections: [],
+    },
+    false,
+  );
 });
 
+function seedHabits() {
+  const now = new Date().toISOString();
+  appStore.setState(
+    {
+      habits: [
+        {
+          id: "habit-music",
+          user_id: "demo-user",
+          name: "Music practice",
+          icon: "🎸",
+          weekly_goal: 3,
+          unit: "sessions",
+          default_increment: 1,
+          status: "active",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          id: "habit-cardio",
+          user_id: "demo-user",
+          name: "Cardio",
+          icon: "🏃",
+          weekly_goal: 5,
+          unit: "sessions",
+          default_increment: 1,
+          status: "active",
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          id: "habit-strength",
+          user_id: "demo-user",
+          name: "Strength",
+          icon: "🏋️",
+          weekly_goal: 2,
+          unit: "sessions",
+          default_increment: 1,
+          status: "paused",
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+    },
+    false,
+  );
+}
+
 describe("App layout and navigation", () => {
-  it("renders dashboard by default with seeded habits", async () => {
+  it("renders welcome empty state when no habits exist", async () => {
     render(<AppWithProviders />);
     expect(screen.getByRole("heading", { name: /habit dashboard/i })).toBeInTheDocument();
-    const cards = await screen.findAllByRole("article");
-    expect(cards.length).toBeGreaterThanOrEqual(2);
+    expect(
+      await screen.findByText(/What would you like to focus on this week\?/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /\+ create first habit/i })).toBeInTheDocument();
   });
 
   it("switches tabs when navigation buttons are clicked", () => {
@@ -22,6 +81,7 @@ describe("App layout and navigation", () => {
   });
 
   it("shows toast and supports undo when adding a log", async () => {
+    seedHabits();
     render(<AppWithProviders />);
     const card = await screen.findByLabelText(/Music practice card/i);
     const addBtn = within(card).getByRole("button", { name: /^\+ add$/i });
@@ -40,6 +100,7 @@ describe("App layout and navigation", () => {
   });
 
   it("supports custom amount logging and updates progress", async () => {
+    seedHabits();
     render(<AppWithProviders />);
     const card = await screen.findByLabelText(/Music practice card/i);
     const amountInput = within(card).getByLabelText(/custom amount/i);
@@ -53,6 +114,7 @@ describe("App layout and navigation", () => {
   });
 
   it("disables logging controls for paused habits", async () => {
+    seedHabits();
     render(<AppWithProviders />);
     const strengthCard = await screen.findByLabelText(/Strength card/i);
     const addButtons = within(strengthCard).getAllByRole("button", { name: /\+ add/i });
@@ -60,6 +122,7 @@ describe("App layout and navigation", () => {
   });
 
   it("shows habit detail logs and supports deletion", async () => {
+    seedHabits();
     render(<AppWithProviders />);
     const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
     fireEvent.click(detailAdd);
@@ -75,6 +138,7 @@ describe("App layout and navigation", () => {
   });
 
   it("lets users change habit status from detail", async () => {
+    seedHabits();
     render(<AppWithProviders />);
     const statusSelect = await screen.findByLabelText(/Status:/i);
     fireEvent.change(statusSelect, { target: { value: "paused" } });
@@ -99,6 +163,7 @@ describe("App layout and navigation", () => {
   });
 
   it("renders monthly summary with aggregated logs", async () => {
+    seedHabits();
     render(<AppWithProviders />);
     const card = await screen.findByLabelText(/Music practice card/i);
     const addBtn = within(card).getByRole("button", { name: /^\+ add$/i });

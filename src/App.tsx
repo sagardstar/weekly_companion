@@ -16,9 +16,9 @@ const DEMO_USER = "demo-user";
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const habits = useAppStore((s) => s.habits);
+  const user = useAppStore((s) => s.user);
   const logs = useAppStore((s) => s.logs);
   const ensureSettings = useAppStore((s) => s.ensureSettings);
-  const addHabit = useAppStore((s) => s.addHabit);
   const addLog = useAppStore((s) => s.addLog);
   const deleteLog = useAppStore((s) => s.deleteLog);
   const selectedDate = useAppStore((s) => s.selectedDate);
@@ -31,9 +31,6 @@ function App() {
   const settings = useAppStore((s) => s.settings);
   const lastUserIdRef = useRef<string | null>(null);
   const ensuredProfileRef = useRef<string | null>(null);
-  const seededRef = useRef(false);
-  const [authReady, setAuthReady] = useState(!supabase);
-  const user = useAppStore((s) => s.user);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   const ensureProfile = (userId: string, email?: string) => {
     if (!supabase || ensuredProfileRef.current === userId) return;
@@ -47,34 +44,9 @@ function App() {
   };
 
   useEffect(() => {
-    ensureSettings(DEMO_USER);
-    if (!authReady || seededRef.current || user) return;
-    if (habits.length === 0) {
-      addHabit({
-        user_id: DEMO_USER,
-        name: "Music practice",
-        weekly_goal: 3,
-        unit: "sessions",
-        default_increment: 1,
-      });
-      addHabit({
-        user_id: DEMO_USER,
-        name: "Cardio",
-        weekly_goal: 5,
-        unit: "sessions",
-        default_increment: 1,
-      });
-      const strength = addHabit({
-        user_id: DEMO_USER,
-        name: "Strength",
-        weekly_goal: 2,
-        unit: "sessions",
-        default_increment: 1,
-      });
-      setHabitStatus(strength.id, "paused");
-    }
-    seededRef.current = true;
-  }, [addHabit, ensureSettings, habits.length, setHabitStatus, authReady, user]);
+    // Ensure settings exist for the active user (or guest).
+    ensureSettings(user?.id ?? DEMO_USER);
+  }, [ensureSettings, user?.id]);
 
   useEffect(() => {
     if (selectedHabitId || habits.length === 0) return;
@@ -90,7 +62,6 @@ function App() {
   useEffect(() => {
     if (!supabase) {
       console.error("Supabase client not configured; skipping auth listener.");
-      Promise.resolve().then(() => setAuthReady(true));
       return;
     }
 
@@ -111,7 +82,7 @@ function App() {
         }
       })
       .catch((err) => console.error("getSession error", err))
-      .finally(() => setAuthReady(true));
+      .finally(() => undefined);
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth Change:", event);
@@ -132,7 +103,6 @@ function App() {
 
     return () => {
       data?.subscription.unsubscribe();
-      setAuthReady(true);
     };
   }, [migrateGuestData, setUser, syncFromCloud]);
 
