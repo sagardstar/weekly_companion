@@ -56,6 +56,7 @@ export function HabitCard({
 
   const isPaused = habit.status === "paused";
   const isArchived = habit.status === "archived";
+  const isActive = habit.status === "active";
 
   const entriesText = habit.weekly_goal
     ? `${stats.count} / ${habit.weekly_goal} ${habit.unit}`
@@ -72,8 +73,10 @@ export function HabitCard({
 
   return (
     <article
-      className={`rounded-2xl bg-white/90 p-4 shadow-soft flex flex-col gap-3 ${
+      className={`rounded-2xl bg-white/90 p-4 shadow-soft flex flex-col gap-3 transition ${
         isArchived ? "opacity-50" : ""
+      } ${isPaused ? "opacity-70 grayscale-[0.25]" : ""} ${
+        selected ? "ring-2 ring-emerald-200" : ""
       }`}
       aria-label={`${habit.name} card`}
     >
@@ -99,14 +102,16 @@ export function HabitCard({
           >
             <Pencil size={16} />
           </button>
-          <CheckCircle2 className="text-emerald-400" size={18} />
+          <CheckCircle2 className={isActive ? "text-emerald-400" : "text-stone-300"} size={18} />
         </div>
       </div>
 
       <div className="space-y-2">
         <div className="h-2 w-full rounded-full bg-stone-100">
           <div
-            className="h-2 rounded-full bg-emerald-400 transition-all"
+            className={`h-2 rounded-full transition-all ${
+              isActive ? "bg-emerald-400" : "bg-stone-300"
+            }`}
             style={{ width: `${progressPct || 0}%` }}
           />
         </div>
@@ -117,7 +122,7 @@ export function HabitCard({
               <span
                 key={idx}
                 className={`h-2.5 w-2.5 rounded-full ${
-                  hasLog ? "bg-emerald-400" : "bg-stone-200"
+                  hasLog ? (isActive ? "bg-emerald-400" : "bg-stone-400") : "bg-stone-200"
                 }`}
               />
             ))}
