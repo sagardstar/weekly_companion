@@ -57,3 +57,12 @@
 ### Milestone 9: Polish & QA (Completed)
 - Added dashboard empty state message; ensured mobile-first grids and consistent status/disabled states.
 - Lint and full test suite passing (`npm run lint`, `npm test`).
+
+### September 2026: Warmth, usability, and persistence refinements
+- Reworked the shell and dashboard with cream/sage colors, serif headings, botanical accents, weekly check-in statistics, and responsive navigation.
+- Simplified habit cards; added daily activity markers for all habits, optional custom entry controls, goal completion states, status filters, and resume/restore actions.
+- Improved habit form validation, optional goals, configurable increments, focus trapping, Escape dismissal, focus restoration, and explicit deletion messaging.
+- Fixed historical-week logging, stale detail dates, selecting already-open details, and reflection week selection. Added month browsing, timezone validation, download backups, and Undo for removed check-ins.
+- Connected local persistence before first render. Previously the persistence adapters existed but the running app never used them. Added malformed-data protection and visible storage failure warnings.
+- Refined account copy and inline sign-in errors. Live OAuth/email delivery and cloud sync were not exercised during this local QA pass.
+- Verified 50 tests, TypeScript checking, ESLint, and production build. Browser checks covered desktop and 390px mobile layouts, form creation, reload persistence, check-ins, pause/resume, detail focus, reflections, and month navigation.

@@ -1,4 +1,5 @@
-import { createContext, ReactNode, useContext, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { createContext, useEffect, ReactNode, useContext, useRef, useState } from "react";
 
 interface ToastOptions {
   message: string;
@@ -22,6 +23,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idRef = useRef(0);
 
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
   const clearTimer = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -35,10 +43,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     idRef.current = nextId;
     const nextToast: ToastState = { id: nextId, ...options };
     setToast(nextToast);
-    const duration = options.durationMs ?? 4000;
+    const duration = options.durationMs ?? 6500;
     timerRef.current = setTimeout(() => {
       setToast(null);
     }, duration);
+  };
+
+  const resumeTimer = () => {
+    clearTimer();
+    timerRef.current = setTimeout(() => setToast(null), toast?.durationMs ?? 6500);
   };
 
   const handleAction = () => {
@@ -52,8 +65,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {toast && (
         <div
-          className="fixed bottom-4 inset-x-0 flex justify-center px-4 pointer-events-none"
+          className="toast-region fixed bottom-4 inset-x-0 flex justify-center px-4 pointer-events-none"
+          role="status"
           aria-live="polite"
+          onMouseEnter={clearTimer}
+          onFocus={clearTimer}
+          onMouseLeave={resumeTimer}
+          onBlur={resumeTimer}
         >
           <div className="pointer-events-auto flex items-center gap-3 rounded-xl bg-slate-900 text-sand-50 shadow-soft px-4 py-3">
             <span className="text-sm">{toast.message}</span>
@@ -65,6 +83,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {toast.actionLabel}
               </button>
             )}
+            <button
+              aria-label="Dismiss notification"
+              onClick={() => {
+                clearTimer();
+                setToast(null);
+              }}
+              className="rounded p-1 text-sand-50 hover:bg-white/10"
+            >
+              <X size={15} />
+            </button>
           </div>
         </div>
       )}

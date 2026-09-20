@@ -118,9 +118,9 @@ describe("app store", () => {
 
   it("uses deterministic UUIDs in tests when mocked", () => {
     const store = createAppStore();
-    const uuidSpy = vi.spyOn(crypto, "randomUUID").mockReturnValue("fixed-id");
+    const uuidSpy = vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000001");
     const habit = store.getState().addHabit({ user_id: userId, name: "Swim" });
-    expect(habit.id).toBe("fixed-id");
+    expect(habit.id).toBe("00000000-0000-4000-8000-000000000001");
     uuidSpy.mockRestore();
   });
 

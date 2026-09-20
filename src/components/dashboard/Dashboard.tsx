@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowUpRight, Check, Flower2, Plus, Sprout } from "lucide-react";
 import { useAppStore } from "../../store";
 import { WeekHeader } from "./WeekHeader";
 import { HabitCard } from "./HabitCard";
@@ -8,9 +9,10 @@ import { Habit } from "../../types/schema";
 type DashboardProps = {
   onSelectHabit?: (id: string) => void;
   selectedHabitId?: string | null;
+  onReflect?: () => void;
 };
 
-export function Dashboard({ onSelectHabit, selectedHabitId }: DashboardProps) {
+export function Dashboard({ onSelectHabit, selectedHabitId, onReflect }: DashboardProps) {
   const habits = useAppStore((s) => s.habits);
   const logs = useAppStore((s) => s.logs);
   const getWeekRange = useAppStore((s) => s.getWeekRange);
@@ -18,53 +20,148 @@ export function Dashboard({ onSelectHabit, selectedHabitId }: DashboardProps) {
   const selectedDate = useAppStore((s) => s.selectedDate);
   const [showModal, setShowModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-
+  const [filter, setFilter] = useState<"all" | "active" | "paused" | "archived">("all");
   const weekRange = useMemo(
     () => getWeekRange(new Date(selectedDate)),
     [getWeekRange, selectedDate],
   );
-
-  const gridHabits = habits.filter((h) => h.status !== "archived");
+  const gridHabits = habits.filter((h) =>
+    filter === "all" ? h.status !== "archived" : h.status === filter,
+  );
+  const active = habits.filter((h) => h.status === "active");
+  const weekLogs = logs.filter(
+    (l) => l.target_date >= weekRange.start && l.target_date <= weekRange.end,
+  );
+  const goalHabits = active.filter((h) => h.weekly_goal);
+  const completed = goalHabits.filter(
+    (h) => getWeeklyProgress(h.id, new Date(selectedDate)) >= h.weekly_goal!,
+  ).length;
+  const openNew = () => {
+    setEditingHabit(null);
+    setShowModal(true);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <WeekHeader />
-        <button
-          onClick={() => {
-            setEditingHabit(null);
-            setShowModal(true);
-          }}
-          className="self-start rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-stone-900 hover:bg-emerald-300 transition"
-        >
-          New Habit
+    <div className="dashboard space-y-7">
+      <header className="page-heading">
+        <div>
+          <p className="eyebrow">A LITTLE CARE, EVERY DAY</p>
+          <h1>Your week, at your pace.</h1>
+          <p>Make room for the things that make you feel good.</p>
+        </div>
+        <button onClick={openNew} className="button-primary">
+          <Plus size={17} /> New Habit
         </button>
+      </header>
+      <section className="welcome-banner" aria-label="A gentle reminder">
+        <div>
+          <span className="eyebrow">SMALL STEPS. MEANINGFUL DAYS.</span>
+          <h2>A little progress is still progress.</h2>
+          <p>
+            You don’t have to do it all. Just keep coming back to what matters to you.
+          </p>
+          <button onClick={onReflect} className="text-link">
+            Take a moment to reflect <ArrowUpRight size={16} />
+          </button>
+        </div>
+        <div className="garden-art" aria-hidden="true">
+          <div className="garden-sun" />
+          <span className="garden-stem stem-one">
+            <Sprout />
+          </span>
+          <span className="garden-stem stem-two">
+            <Flower2 />
+          </span>
+          <span className="garden-stem stem-three">
+            <Sprout />
+          </span>
+          <div className="garden-ground" />
+        </div>
+      </section>
+      <div className="week-overview">
+        <WeekHeader />
+        <div className="week-stats">
+          <div>
+            <strong>{weekLogs.length}</strong>
+            <span>check-ins</span>
+          </div>
+          <div>
+            <strong>
+              {new Set(weekLogs.map((l) => l.target_date)).size}
+              <small> / 7</small>
+            </strong>
+            <span>days with a little progress</span>
+          </div>
+          <div>
+            <strong>
+              {completed}
+              <small> / {goalHabits.length}</small>
+            </strong>
+            <span>
+              weekly goals met <Check size={12} />
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="habit-section-heading">
+        <div>
+          <h2>
+            Your habits <span>{gridHabits.length}</span>
+          </h2>
+          <p>A little intention goes a long way.</p>
+        </div>
+        <div className="habit-filters" aria-label="Filter habits">
+          {(["all", "active", "paused", "archived"] as const).map((value) => (
+            <button
+              key={value}
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+            >
+              {value === "all" ? "All habits" : value[0].toUpperCase() + value.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
       {gridHabits.length === 0 ? (
-        <EmptyState
-          onAdd={() => {
-            setEditingHabit(null);
-            setShowModal(true);
-          }}
-        />
+        <div className="empty-state">
+          <div className="empty-icon">
+            <Sprout size={35} strokeWidth={1.5} />
+          </div>
+          <h3>
+            {habits.length === 0
+              ? "What would you like to focus on this week?"
+              : `No ${filter === "all" ? "current" : filter} habits here.`}
+          </h3>
+          <p>
+            {habits.length === 0
+              ? "Start with one small thing that feels good. You can grow from there."
+              : "Your habits can change with you. There’s no rush."}
+          </p>
+          {habits.length === 0 ? (
+            <button onClick={openNew} className="button-primary">
+              + Create First Habit
+            </button>
+          ) : (
+            <button className="button-secondary" onClick={() => setFilter("all")}>
+              Show all habits
+            </button>
+          )}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="habit-grid">
           {gridHabits.map((habit) => {
             const count = getWeeklyProgress(habit.id, new Date(selectedDate));
-            const goal = habit.weekly_goal;
-            const progress = goal ? Math.min(100, Math.round((count / goal) * 100)) : 0;
-            const weeklyLogs = logs.filter(
-              (l) =>
-                l.habit_id === habit.id &&
-                l.target_date >= weekRange.start &&
-                l.target_date <= weekRange.end,
-            );
             return (
               <HabitCard
                 key={habit.id}
                 habit={habit}
-                stats={{ count, progress }}
-                weeklyLogs={weeklyLogs}
+                stats={{
+                  count,
+                  progress: habit.weekly_goal
+                    ? Math.min(100, Math.round((count / habit.weekly_goal) * 100))
+                    : 0,
+                }}
+                weeklyLogs={weekLogs.filter((l) => l.habit_id === habit.id)}
                 weekStartDate={weekRange.start}
                 selected={habit.id === selectedHabitId}
                 onSelect={() => onSelectHabit?.(habit.id)}
@@ -77,46 +174,17 @@ export function Dashboard({ onSelectHabit, selectedHabitId }: DashboardProps) {
           })}
         </div>
       )}
-      <HabitFormModal
-        key={editingHabit?.id ?? "new"}
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        initialData={editingHabit}
-      />
-    </div>
-  );
-}
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="rounded-2xl bg-white/90 p-8 shadow-soft border border-stone-200 overflow-hidden relative">
-      <div
-        className="absolute inset-0 opacity-50 pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(to bottom, rgba(231,229,228,0.35) 1px, transparent 1px)",
-          backgroundSize: "100% 28px",
-        }}
-      />
-      <div className="relative flex flex-col items-center text-center gap-3">
-        <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center shadow-soft">
-          <span className="text-3xl" aria-hidden="true">
-            🌱
-          </span>
-        </div>
-        <h3 className="text-2xl font-semibold text-stone-900">
-          What would you like to focus on this week?
-        </h3>
-        <p className="text-stone-600 text-sm max-w-sm">
-          Start small. You can always add more later.
-        </p>
-        <button
-          onClick={onAdd}
-          className="mt-2 rounded-2xl bg-emerald-400 px-5 py-2.5 font-semibold text-stone-900 hover:bg-emerald-300 transition shadow-soft"
-        >
-          + Create First Habit
-        </button>
-      </div>
+      <p className="dashboard-footnote">
+        <Sprout size={15} /> Consistency has room for rest days, too.
+      </p>
+      {showModal && (
+        <HabitFormModal
+          key={editingHabit?.id ?? "new"}
+          isOpen
+          onClose={() => setShowModal(false)}
+          initialData={editingHabit}
+        />
+      )}
     </div>
   );
 }

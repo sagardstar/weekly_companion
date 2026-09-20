@@ -1,4 +1,3 @@
-import { addDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 export type WeekStartDay = "sunday" | "monday" | "saturday";
@@ -23,28 +22,18 @@ export function getWeekRange(
   const weekStartsOn = weekStartMap[weekStartDay];
   const dayOfWeek = baseDate.getUTCDay();
   const diff = (dayOfWeek - weekStartsOn + 7) % 7;
-  const start = addDays(baseDate, -diff);
-  const end = addDays(start, 6);
+  const start = addCalendarDays(baseDateStr, -diff);
+  const end = addCalendarDays(start, 6);
 
   return {
-    start: toDateString(start),
-    end: toDateString(end),
+    start,
+    end,
   };
 }
 
-export function addDaysInTimezone(
-  date: Date,
-  timezone: string,
-  days: number,
-): string {
+export function addDaysInTimezone(date: Date, timezone: string, days: number): string {
   const baseDateStr = formatTargetDate(date, timezone);
-  const baseDate = new Date(`${baseDateStr}T00:00:00Z`);
-  const shifted = addDays(baseDate, days);
-  return toDateString(shifted);
-}
-
-function toDateString(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return addCalendarDays(baseDateStr, days);
 }
 
 export function detectInitialTimezone(): string {
@@ -60,3 +49,19 @@ export function detectInitialTimezone(): string {
 }
 
 const DEFAULT_TIMEZONE = "UTC";
+
+/** Calendar-only values must never shift with the browser's timezone. */
+export function addCalendarDays(date: string, days: number): string {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+export function formatCalendarDate(
+  date: string,
+  options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" },
+): string {
+  return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(
+    new Date(`${date}T12:00:00Z`),
+  );
+}

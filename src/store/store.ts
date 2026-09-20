@@ -19,6 +19,7 @@ export type AppStore = ReturnType<typeof createAppStore>;
 
 export function createAppStore(initial?: Partial<PersistedState>) {
   const baseState: AppState = {
+    localSaveError: null,
     user: null,
     selectedDate: new Date().toISOString(),
     settings: initial?.settings ?? null,

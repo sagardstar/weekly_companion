@@ -5,20 +5,22 @@ module.exports = {
     extend: {
       colors: {
         sand: {
-          50: "#f8f4ed",
-          100: "#e9e0d0",
+          50: "#faf9f6",
+          100: "#e7e7dc",
         },
         sage: {
-          100: "#dce7dc",
-          300: "#9fb6a2",
-          500: "#6c8c72",
+          100: "#e8eddf",
+          300: "#bcc9ad",
+          500: "#536b47",
+          700: "#405638",
+          800: "#35482e",
         },
       },
       borderRadius: {
         lg: "14px",
       },
       boxShadow: {
-        soft: "0 10px 35px rgba(16, 24, 40, 0.07)",
+        soft: "0 3px 14px rgba(52, 69, 42, 0.035)",
       },
     },
   },

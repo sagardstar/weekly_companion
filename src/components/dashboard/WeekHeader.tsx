@@ -1,66 +1,58 @@
 import { addDays } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppStore } from "../../store";
-
-const MONTHS_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-function formatMonthDay(dateStr: string) {
-  // dateStr is YYYY-MM-DD; treat as a pure calendar date to avoid timezone shifts.
-  const month = Number(dateStr.slice(5, 7));
-  const day = Number(dateStr.slice(8, 10));
-  const monthLabel = MONTHS_SHORT[month - 1] ?? "";
-  return `${monthLabel} ${day}`;
-}
+import { formatCalendarDate } from "../../lib/time";
 
 export function WeekHeader() {
   const selectedDate = useAppStore((s) => s.selectedDate);
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
   const getWeekRange = useAppStore((s) => s.getWeekRange);
-
-  const currentDate = new Date(selectedDate);
-  const range = getWeekRange(currentDate);
-
-  const weekLabel = `${formatMonthDay(range.start)} - ${formatMonthDay(range.end)}`;
-
-  const shiftWeek = (days: number) => {
-    const next = addDays(currentDate, days);
-    setSelectedDate(next.toISOString());
-  };
-
+  const range = getWeekRange(new Date(selectedDate));
+  const current = getWeekRange().start === range.start;
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-white/80 px-4 py-3 shadow-soft">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-stone-500">Week</p>
-        <h2 className="text-xl font-semibold text-stone-900">{weekLabel}</h2>
+    <div className="week-picker">
+      <div className="week-picker-title">
+        <CalendarDays size={17} />
+        <span>{current ? "THIS WEEK" : "YOUR WEEK"}</span>
+        {!current && (
+          <button
+            onClick={() => setSelectedDate(new Date().toISOString())}
+            className="text-link"
+          >
+            Back to today
+          </button>
+        )}
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => shiftWeek(-7)}
-          className="p-2 rounded-full bg-stone-100 text-stone-700 hover:bg-stone-200"
-          aria-label="Previous week"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <button
-          onClick={() => shiftWeek(7)}
-          className="p-2 rounded-full bg-stone-100 text-stone-700 hover:bg-stone-200"
-          aria-label="Next week"
-        >
-          <ChevronRight size={18} />
-        </button>
+      <div className="week-picker-controls">
+        <h2>
+          {formatCalendarDate(range.start)} – {formatCalendarDate(range.end)}
+          <small>
+            {range.start.slice(0, 4) !== range.end.slice(0, 4)
+              ? `${range.start.slice(0, 4)} / `
+              : ""}
+            {range.end.slice(0, 4)}
+          </small>
+        </h2>
+        <div className="flex gap-1">
+          <button
+            className="icon-button"
+            aria-label="Previous week"
+            onClick={() =>
+              setSelectedDate(addDays(new Date(selectedDate), -7).toISOString())
+            }
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Next week"
+            onClick={() =>
+              setSelectedDate(addDays(new Date(selectedDate), 7).toISOString())
+            }
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

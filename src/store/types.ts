@@ -2,6 +2,7 @@ import { Habit, LogEntry, UserSettings, WeeklyReflection } from "../types/schema
 import { User } from "@supabase/supabase-js";
 
 export interface AppState {
+  localSaveError: string | null;
   user: User | null;
   selectedDate: string; // ISO string for the dashboard week selection
   settings: UserSettings | null;

@@ -75,11 +75,15 @@ function seedHabits() {
 describe("App layout and navigation", () => {
   it("renders welcome empty state when no habits exist", async () => {
     render(<AppWithProviders />);
-    expect(screen.getByRole("heading", { name: /habit dashboard/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Your week, at your pace/i }),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText(/What would you like to focus on this week\?/i),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /\+ create first habit/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /\+ create first habit/i }),
+    ).toBeInTheDocument();
   });
 
   it("lets users create a habit with a chosen icon", async () => {
@@ -111,7 +115,9 @@ describe("App layout and navigation", () => {
     seedHabits();
     render(<AppWithProviders />);
     const card = await screen.findByLabelText(/Music practice card/i);
-    const addBtn = within(card).getByRole("button", { name: /^\+ add$/i });
+    const addBtn = within(card).getByRole("button", {
+      name: /^\+ add 1 sessions today$/i,
+    });
     fireEvent.click(addBtn);
 
     expect(await screen.findByText(/logged/i)).toBeInTheDocument();
@@ -130,6 +136,7 @@ describe("App layout and navigation", () => {
     seedHabits();
     render(<AppWithProviders />);
     const card = await screen.findByLabelText(/Music practice card/i);
+    fireEvent.click(within(card).getByText("Custom amount"));
     const amountInput = within(card).getByLabelText(/custom amount/i);
     fireEvent.change(amountInput, { target: { value: "2" } });
     const addCustom = within(card).getByRole("button", { name: /\+ add custom/i });
@@ -151,9 +158,11 @@ describe("App layout and navigation", () => {
   it("shows habit detail logs and supports deletion", async () => {
     seedHabits();
     render(<AppWithProviders />);
-    const dateButtons = await screen.findAllByRole("button", { name: /Select log date/i });
+    const dateButtons = await screen.findAllByRole("button", {
+      name: /Select log date/i,
+    });
     expect(dateButtons.length).toBeGreaterThan(0);
-    const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
+    const detailAdd = await screen.findByRole("button", { name: /^\+ add 1 sessions$/i });
     fireEvent.click(detailAdd);
 
     const logItem = await screen.findByText(/1 sessions on/i);
@@ -171,7 +180,7 @@ describe("App layout and navigation", () => {
     render(<AppWithProviders />);
     const statusSelect = await screen.findByLabelText(/Status:/i);
     fireEvent.change(statusSelect, { target: { value: "paused" } });
-    const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
+    const detailAdd = await screen.findByRole("button", { name: /^\+ add 1 sessions$/i });
     expect(detailAdd).toBeDisabled();
   });
 
@@ -188,7 +197,7 @@ describe("App layout and navigation", () => {
     });
     fireEvent.click(backdate);
 
-    const detailAdd = await screen.findByRole("button", { name: /\+ add 1 sessions/i });
+    const detailAdd = await screen.findByRole("button", { name: /^\+ add 1 sessions$/i });
     fireEvent.click(detailAdd);
 
     expect(await screen.findByText(/1 sessions on 2025-12-14/i)).toBeInTheDocument();
@@ -214,7 +223,9 @@ describe("App layout and navigation", () => {
     seedHabits();
     render(<AppWithProviders />);
     const card = await screen.findByLabelText(/Music practice card/i);
-    const addBtn = within(card).getByRole("button", { name: /^\+ add$/i });
+    const addBtn = within(card).getByRole("button", {
+      name: /^\+ add 1 sessions today$/i,
+    });
     fireEvent.click(addBtn);
 
     const monthlyTab = screen.getByRole("button", { name: /monthly summary/i });
@@ -260,5 +271,100 @@ describe("App layout and navigation", () => {
     fireEvent.click(importBtn);
 
     expect(appStore.getState().settings?.timezone).toBe("Asia/Tokyo");
+  });
+});
+
+it("resets the detail log date when moving to another week", async () => {
+  seedHabits();
+  appStore.setState({ selectedDate: "2025-12-17T12:00:00Z" });
+  render(<AppWithProviders />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Select log date 2025-12-17" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Previous week" }));
+  fireEvent.click(screen.getByRole("button", { name: /^\+ Add 1 sessions$/ }));
+  expect(appStore.getState().logs[0].target_date).toBe("2025-12-07");
+  expect(
+    screen.queryByRole("button", { name: /sessions today/ }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Back to today" }));
+  expect(
+    screen.getAllByRole("button", { name: /sessions today/ }).length,
+  ).toBeGreaterThan(0);
+});
+
+it("restores an archived habit without losing its history", async () => {
+  seedHabits();
+  appStore.getState().setHabitStatus("habit-music", "archived");
+  const log = appStore
+    .getState()
+    .addLog({ habit_id: "habit-music", user_id: "demo-user", amount: 1 });
+  render(<AppWithProviders />);
+  expect(screen.queryByLabelText("Music practice card")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Archived" }));
+  const card = await screen.findByLabelText("Music practice card");
+  fireEvent.click(within(card).getByRole("button", { name: "Restore" }));
+  expect(appStore.getState().habits.find((h) => h.id === "habit-music")?.status).toBe(
+    "active",
+  );
+  expect(appStore.getState().logs).toContainEqual(log);
+});
+
+it("starts a fresh habit form each time and returns focus on Escape", async () => {
+  render(<AppWithProviders />);
+  const open = screen.getByRole("button", { name: "New Habit" });
+  open.focus();
+  fireEvent.click(open);
+  const name = screen.getByRole("textbox", { name: "Name" });
+  expect(name).toHaveFocus();
+  fireEvent.change(name, { target: { value: "Draft" } });
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(open).toHaveFocus();
+  fireEvent.click(open);
+  expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("");
+});
+
+it("rejects an invalid timezone without changing saved settings", async () => {
+  seedHabits();
+  render(<AppWithProviders />);
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.change(screen.getByLabelText("Timezone"), {
+    target: { value: "not/a-timezone" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  expect(screen.getByText(/Choose a valid timezone/)).toBeInTheDocument();
+  expect(appStore.getState().settings?.timezone).toBe("UTC");
+});
+
+it("saves a reflection for the week being viewed", async () => {
+  seedHabits();
+  appStore.setState({ selectedDate: "2025-12-17T12:00:00Z" });
+  render(<AppWithProviders />);
+  fireEvent.click(screen.getByRole("button", { name: "Reflections" }));
+  fireEvent.change(screen.getByLabelText("What went well?"), {
+    target: { value: "Made time for music" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save reflection" }));
+  expect(appStore.getState().reflections[0].week_start_date).toBe("2025-12-14");
+});
+
+it("can undo a removed check-in with its original date and note", async () => {
+  seedHabits();
+  render(<AppWithProviders />);
+  fireEvent.change(screen.getByLabelText("Note (optional)"), {
+    target: { value: "A lovely practice" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^\+ Add 1 sessions$/ }));
+  const original = appStore.getState().logs[0];
+  expect(screen.getByLabelText("Note (optional)")).toHaveValue("");
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  expect(appStore.getState().logs).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(appStore.getState().logs[0]).toMatchObject({
+    target_date: original.target_date,
+    timestamp: original.timestamp,
+    note: original.note,
+    amount: original.amount,
   });
 });
