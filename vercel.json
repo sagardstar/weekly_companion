@@ -10,5 +10,17 @@
     "api/keepalive.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ],
+  "buildCommand": "npm run build"
 }

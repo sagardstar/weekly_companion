@@ -66,3 +66,16 @@
 - Connected local persistence before first render. Previously the persistence adapters existed but the running app never used them. Added malformed-data protection and visible storage failure warnings.
 - Refined account copy and inline sign-in errors. Live OAuth/email delivery and cloud sync were not exercised during this local QA pass.
 - Verified 50 tests, TypeScript checking, ESLint, and production build. Browser checks covered desktop and 390px mobile layouts, form creation, reload persistence, check-ins, pause/resume, detail focus, reflections, and month navigation.
+
+## 2026-09-20 — Installable PWA and foreground offline sync
+- Added install manifest, phone icons, production app-shell precaching, and safe update activation after existing windows close.
+- Replaced immediate habit/log writes with a durable, account-scoped outbox; records and pending operations persist atomically. Reconnect/focus/visible interval sync retries with explicit status and protects newer local edits from delayed responses.
+- Preserved the old local snapshot as a backup, isolated guest/account data, and retained device-local preferences/reflections with clear in-app copy.
+- Added failure/restart/account-switch/merge tests. Browser smoke test: both production apps reloaded with their local servers stopped; a Weekly check-in and board scratchpad persisted locally. Live Supabase and physical phone installation still need deployment/device acceptance.
+
+## 2026-09-21 — Offline sync safeguards
+- Audited the Web Lock lifecycle and kept non-holders read-only with storage-event snapshots, explicit retry after the editor closes, and no lease/forced-steal fallback. Read-only account selection now hydrates only the authenticated account workspace; backup export/download remains available.
+- Made habit/log deletes conditional on original fields, including nulls, and made duplicate-create/lost-response handling read back the row instead of using a blind follow-up update. Rebased edits made while a create is in flight into conditional updates after the insert is acknowledged.
+- Added focused lock, account-isolation, create-rebase, conditional-delete, lost-response, and real Supabase-client fake-fetch coverage. Preferences and reflections remain local-only; sync stays foreground-only while the app is open and online.
+- Create attempts now journal their exact first payload before network I/O. Lost responses therefore remain reconcilable across restart, later in-flight edits, and deletion; never-attempted creates remain locally discardable. Legacy base-less edits retain an explicit recovery block through coalescing.
+- Verification: all 85 tests passed; TypeScript, ESLint, the production build, and diff whitespace checks passed. Production browser acceptance on an isolated origin confirmed a second window stayed read-only and received the editor's new-habit snapshot, then the cached app and habit reloaded with the local server stopped.

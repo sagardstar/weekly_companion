@@ -2,8 +2,14 @@ import { Habit, LogEntry, UserSettings, WeeklyReflection } from "../types/schema
 import { User } from "@supabase/supabase-js";
 
 export interface AppState {
+  editorMode: "active" | "readOnly" | "unsupported";
   localSaveError: string | null;
   user: User | null;
+  authRevision: number;
+  localOwnerId: string | null;
+  syncStatus: "local" | "offline" | "pending" | "syncing" | "synced" | "error";
+  pendingCount: number;
+  syncError: string | null;
   selectedDate: string; // ISO string for the dashboard week selection
   settings: UserSettings | null;
   habits: Habit[];
@@ -22,8 +28,9 @@ export interface AddHabitInput {
   default_increment?: number;
 }
 
-export interface UpdateHabitInput
-  extends Partial<Omit<AddHabitInput, "user_id" | "name">> {
+export interface UpdateHabitInput extends Partial<
+  Omit<AddHabitInput, "user_id" | "name">
+> {
   name?: string;
 }
 

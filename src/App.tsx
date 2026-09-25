@@ -30,6 +30,7 @@ const DEMO_USER = "demo-user";
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const localSaveError = useAppStore((s) => s.localSaveError);
+  const editorMode = useAppStore((s) => s.editorMode);
   const habits = useAppStore((s) => s.habits);
   const user = useAppStore((s) => s.user);
   const logs = useAppStore((s) => s.logs);
@@ -51,10 +52,12 @@ function App() {
   const getWeekRange = useAppStore((s) => s.getWeekRange);
   const getWeeklyProgress = useAppStore((s) => s.getWeeklyProgress);
   const setUser = useAppStore((s) => s.setUser);
-  const migrateGuestData = useAppStore((s) => s.migrateGuestData);
+  const localOwnerId = useAppStore((s) => s.localOwnerId);
+  const syncStatus = useAppStore((s) => s.syncStatus);
+  const pendingCount = useAppStore((s) => s.pendingCount);
+  const syncError = useAppStore((s) => s.syncError);
   const syncFromCloud = useAppStore((s) => s.syncFromCloud);
   const settings = useAppStore((s) => s.settings);
-  const lastUserIdRef = useRef<string | null>(null);
   const ensuredProfileRef = useRef<string | null>(null);
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   const habitDetailRef = useRef<HTMLElement | null>(null);
@@ -71,8 +74,9 @@ function App() {
 
   useEffect(() => {
     // Ensure settings exist for the active user (or guest).
-    ensureSettings(user?.id ?? DEMO_USER);
-  }, [ensureSettings, user?.id]);
+    if (editorMode !== "active") return;
+    ensureSettings(user?.id ?? localOwnerId ?? DEMO_USER);
+  }, [editorMode, ensureSettings, user?.id, localOwnerId]);
 
   useEffect(() => {
     if (!supabase) {
@@ -80,46 +84,35 @@ function App() {
       return;
     }
 
-    const migrateLocalData = (userId: string) => {
-      console.log("Migrating data for user:", userId);
+    let active = true;
+    let receivedEvent = false;
+    const accept = (next: Parameters<typeof setUser>[0]) => {
+      if (!active) return;
+      // A missing session while offline must not reclassify account drafts as guest data.
+      if (!next && !navigator.onLine) return;
+      setUser(next);
+      if (next && navigator.onLine && editorMode === "active") {
+        ensureProfile(next.id, next.email ?? undefined);
+        void syncFromCloud();
+      }
     };
-
     supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (data.session?.user) {
-          console.log("Auth Change: INITIAL_SESSION", data.session.user.id);
-          setUser(data.session.user);
-          lastUserIdRef.current = data.session.user.id;
-          ensureProfile(data.session.user.id, data.session.user.email ?? undefined);
-          migrateLocalData(data.session.user.id);
-          void syncFromCloud();
-        }
+        if (!receivedEvent) accept(data.session?.user ?? null);
       })
-      .catch((err) => console.error("getSession error", err))
-      .finally(() => undefined);
-
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth Change:", event);
-      const user = session?.user ?? null;
-      setUser(user);
-      if (user) {
-        if (event === "SIGNED_IN" && !lastUserIdRef.current) {
-          void migrateGuestData(user.id);
-          migrateLocalData(user.id);
-        }
-        ensureProfile(user.id, user.email ?? undefined);
-        lastUserIdRef.current = user.id;
-        void syncFromCloud();
-      } else {
-        lastUserIdRef.current = null;
-      }
+      .catch(console.error);
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      receivedEvent = true;
+      // Defer data requests until the auth callback has released its lock.
+      setTimeout(() => accept(session?.user ?? null), 0);
     });
 
     return () => {
+      active = false;
       data?.subscription.unsubscribe();
     };
-  }, [migrateGuestData, setUser, syncFromCloud]);
+  }, [editorMode, setUser, syncFromCloud]);
 
   const tabs = [
     { key: "dashboard" as TabKey, label: "My week", icon: LayoutGrid },
@@ -226,6 +219,31 @@ function App() {
         <div
           className={`page-content ${activeTab !== "dashboard" ? "secondary-page" : ""}`}
         >
+          <div
+            className="mb-4 flex flex-wrap items-center gap-3 text-sm text-sage-600"
+            role="status"
+          >
+            <span>
+              {syncStatus === "offline"
+                ? "Offline — saved on this device"
+                : syncStatus === "syncing"
+                  ? "Syncing…"
+                  : syncStatus === "error"
+                    ? "Sync paused"
+                    : syncStatus === "pending"
+                      ? "Changes pending"
+                      : syncStatus === "synced"
+                        ? "Habits and check-ins synced"
+                        : "Saved on this device"}
+              {pendingCount > 0 ? ` · ${pendingCount} pending` : ""}
+            </span>
+            {(user || localOwnerId) && (
+              <button className="underline" onClick={() => void syncFromCloud()}>
+                Sync now
+              </button>
+            )}
+            {syncError && <span>{syncError}</span>}
+          </div>
           {localSaveError && (
             <div
               role="alert"
@@ -237,6 +255,22 @@ function App() {
               </button>
             </div>
           )}
+          {editorMode !== "active" && (
+            <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              {editorMode === "readOnly"
+                ? "Another Weekly Companion window is editing this data. This window is read-only and will not overwrite it. Close the editing window, then take over here."
+                : "This browser cannot safely coordinate multiple Weekly Companion windows, so this window is read-only."}
+              {editorMode === "readOnly" && (
+                <button
+                  className="ml-2 underline"
+                  onClick={() => window.dispatchEvent(new Event("weekly-companion:retry-editor-lock"))}
+                >
+                  Take over after closing it
+                </button>
+              )}
+            </div>
+          )}
+          <fieldset disabled={editorMode !== "active"} className="contents">
           {activeTab === "dashboard" && (
             <div className="space-y-4">
               <Dashboard
@@ -303,7 +337,6 @@ function App() {
           )}
           {activeTab === "reflections" && <ReflectionsTab />}
           {activeTab === "monthly" && <MonthlySummaryTab />}
-          {activeTab === "settings" && <SettingsTab />}
           {activeTab === "account" &&
             (user ? (
               <section className="account-panel">
@@ -312,7 +345,13 @@ function App() {
                 <p>Signed in as {user.email}</p>
                 <button
                   className="button-secondary"
-                  onClick={() => void supabase?.auth.signOut()}
+                  onClick={() => {
+                    if (!pendingCount) void supabase?.auth.signOut();
+                    else
+                      showToast({
+                        message: "Sync your pending changes before signing out.",
+                      });
+                  }}
                 >
                   Sign out
                 </button>
@@ -320,6 +359,10 @@ function App() {
             ) : (
               <Login />
             ))}
+          </fieldset>
+          {activeTab === "settings" && (
+            <SettingsTab readOnly={editorMode !== "active"} />
+          )}
         </div>
       </main>
     </div>
@@ -509,7 +552,7 @@ function MonthlySummaryTab() {
   );
 }
 
-function SettingsTab() {
+function SettingsTab({ readOnly }: { readOnly: boolean }) {
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const ensureSettings = useAppStore((s) => s.ensureSettings);
@@ -518,6 +561,7 @@ function SettingsTab() {
   const logs = useAppStore((s) => s.logs);
   const reflections = useAppStore((s) => s.reflections);
   const { showToast } = useToast();
+  const editorMode = useAppStore((s) => s.editorMode);
 
   const [timezone, setTimezone] = useState(settings?.timezone ?? detectInitialTimezone());
   const [weekStart, setWeekStart] = useState<WeekStart>(
@@ -528,13 +572,15 @@ function SettingsTab() {
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    if (editorMode !== "active") return;
     const ensured = ensureSettings(settings?.user_id ?? DEMO_USER);
     setTimezone(ensured.timezone);
     setWeekStart(ensured.week_start_day);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [editorMode]);
 
   const handleSave = () => {
+    if (readOnly) return;
     try {
       new Intl.DateTimeFormat("en-US", { timeZone: timezone.trim() }).format();
     } catch {
@@ -582,6 +628,7 @@ function SettingsTab() {
   };
 
   const handleImport = () => {
+    if (readOnly) return;
     const { state, errors } = parseImportedState(importText);
     if (errors.length > 0 || !state) {
       setStatus(errors.join("; "));
@@ -599,6 +646,18 @@ function SettingsTab() {
       <header className="space-y-2">
         <p className="text-sm uppercase tracking-wide text-sage-500">Settings</p>
         <h2 className="text-2xl font-semibold text-slate-900">Preferences & Data</h2>
+        <p className="text-sm text-slate-600">
+          Habits and check-ins sync when you’re signed in, online, and the app is open.
+          Preferences and reflections stay on this device and are included in your export.
+        </p>
+        <details className="text-sm text-slate-600">
+          <summary className="cursor-pointer">Install on your phone</summary>
+          <p className="mt-2">
+            On Pixel, open this site in Chrome and choose Install app or Add to Home
+            screen from the menu. On iPhone, open it in Safari, tap Share, then Add to
+            Home Screen. Open the app online once before using it offline.
+          </p>
+        </details>
       </header>
       <div className="space-y-3 rounded-2xl border border-sand-100 bg-white p-4 shadow-soft">
         <label className="text-sm text-slate-700 flex flex-col gap-1">
@@ -606,6 +665,7 @@ function SettingsTab() {
           <select
             value={weekStart}
             onChange={(e) => setWeekStart(e.target.value as WeekStart)}
+            disabled={readOnly}
             className="rounded-lg border border-sand-100 px-3 py-2 text-sm"
           >
             <option value="monday">Monday</option>
@@ -619,6 +679,7 @@ function SettingsTab() {
             type="text"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
+            disabled={readOnly}
             className="rounded-lg border border-sand-100 px-3 py-2 text-sm"
             placeholder="e.g., America/New_York"
           />
@@ -626,6 +687,7 @@ function SettingsTab() {
         <div className="flex gap-2">
           <button
             onClick={handleSave}
+            disabled={readOnly}
             className="px-4 py-2 rounded-xl bg-sage-500 text-white font-medium hover:bg-sage-700 transition"
           >
             Save settings
@@ -659,6 +721,7 @@ function SettingsTab() {
           </button>
           <button
             onClick={handleImport}
+            disabled={readOnly}
             className="px-4 py-2 rounded-xl bg-sage-500 text-white font-medium hover:bg-sage-700 transition"
           >
             Import JSON
@@ -678,6 +741,7 @@ function SettingsTab() {
           <textarea
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
+            disabled={readOnly}
             rows={4}
             className="rounded-lg border border-sand-100 px-3 py-2 text-sm font-mono"
             placeholder="Paste exported JSON"

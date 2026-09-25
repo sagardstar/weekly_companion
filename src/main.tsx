@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import { AppWithProviders } from "./App";
 import "./index.css";
 import { appStore } from "./store";
-import { connectLocalPersistence } from "./persistence/connect";
+import { connectOfflineSync, supabaseGateway } from "./offline/sync";
+import { supabase } from "./lib/supabase";
 
 const rootEl = document.getElementById("root");
 
@@ -12,7 +13,14 @@ if (!rootEl) {
 }
 
 try {
-  const disconnect = connectLocalPersistence(appStore, window.localStorage);
+  // Do not let React effects mutate a snapshot before the lifetime editor lock
+  // has been granted. connectOfflineSync flips this to active for the owner.
+  appStore.setState({ editorMode: "readOnly" });
+  const disconnect = connectOfflineSync(
+    appStore,
+    window.localStorage,
+    supabase ? supabaseGateway(supabase) : null,
+  );
   if (import.meta.hot) import.meta.hot.dispose(disconnect);
 } catch {
   appStore.setState({
@@ -26,3 +34,9 @@ createRoot(rootEl).render(
     <AppWithProviders />
   </StrictMode>,
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(console.error);
+  });
+}
